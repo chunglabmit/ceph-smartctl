@@ -21,7 +21,7 @@ import json
 def main():
     module = AnsibleModule(argument_spec={})
     rc, stdout, stderr = module.run_command(
-            ["sudo", "ceph-volume", "lvm", "list", "--format", "json"])
+            ["ceph-volume", "lvm", "list", "--format", "json"])
     with open("/tmp/ceph-volume.log", "w") as fd:
         json.dump(dict(rc=rc, stdout=stdout, stderr=stderr), fd,
                   indent=2)
@@ -43,7 +43,7 @@ def main():
     for osd, devices in all_devices.items():
         for device in devices:
             rc, stdout, stderr = module.run_command(
-                ["sudo", "smartctl", "-H", device]
+                ["smartctl", "-H", device]
             )
             with open("/tmp/smartctl_%s.log" % osd, "w") as fd:
                 json.dump(dict(rc=rc, stdout=stdout, stderr=stderr, device=device), fd)
