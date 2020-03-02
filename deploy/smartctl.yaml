@@ -1,0 +1,9 @@
+- hosts: osds
+  tasks:
+    - name: Install smartmontools
+      become: yes
+      yum:
+        name: smartmontools
+    - name: check status
+      check_status:
+
