@@ -4,7 +4,21 @@
       become: yes
       yum:
         name: smartmontools
+    - name: Copy smartd.conf
+      become: yes
+      copy:
+        src: smartd.conf
+        dest: /etc/smartd.conf
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Start smartd
+      become: yes
+      systemd:
+        name: smartd
+        state: started
     - name: check status
       become: yes
       check_status:
-
+      register: check_status_output
+    - debug: var=check_status_output.smartctl

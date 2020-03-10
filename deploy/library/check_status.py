@@ -2,21 +2,10 @@
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
-# not only visible to ansible-doc, it also 'declares' the options the plugin requires and how to configure them.
-DOCUMENTATION = '''
-  short_description: Checks smartctl status on all Ceph drives
-  version_added: "1.0"
-  description:
-      - This action uses ceph-volume lvm list to get the Ceph OSDs and their
-      - associated drives and then uses smartctl to check their status
-'''
+import re
 
 from ansible.module_utils.basic import AnsibleModule
 import json
-
-#from ansible.utils.display import Display
-#
-#display = Display()
 
 def main():
     module = AnsibleModule(argument_spec={})
@@ -27,8 +16,6 @@ def main():
                   indent=2)
 
     if rc:
-        #display.vvvv("ceph-volume stderr:")
-        #display.vvvv(result["stderr"])
         module.fail_json(msg="ceph-volume failed to run: %s" % stderr)
         return
     d = json.loads(stdout)
@@ -37,10 +24,11 @@ def main():
         devices = []
         for dd in d[osd]:
             devices += dd["devices"]
-        #display.vvvv("OSD %d has devices %s" % (osd, ",".join(devices)))
         all_devices[osd] = devices
 
+    ansible_facts = {}
     for osd, devices in all_devices.items():
+        ansible_facts[osd] = {}
         for device in devices:
             rc, stdout, stderr = module.run_command(
                 ["smartctl", "-H", device]
@@ -49,6 +37,41 @@ def main():
                 json.dump(dict(rc=rc, stdout=stdout, stderr=stderr, device=device), fd)
             lines = [_.strip() for _ in stdout.split("\n")]
             if rc == 0:
+                rc, sg_reassign_stdout, stderr = module.run_command(
+                    ["sg_reassign", "--grown", device]
+                )
+                if rc == 0:
+                    match = re.search(
+                        "Elements in grown defect list: (?P<defects>[0-9]+)",
+                        sg_reassign_stdout)
+                    ansible_facts[osd][device] = dict(
+                        defects=int(match.groupdict()["defects"])
+                    )
+                rc, smartctl_stdout, stderr = module.run_command(
+                    ["smartctl", "-a", device])
+                match = re.search("^read:\\s*(?P<fast_ecc>\\d+)"
+                   "\\s*(?P<delayed_ecc>\\d+)"
+                   "\\s*(?P<rereads>\\d+)"
+                   "\\s*(?P<total_ecc>\\d+)"
+                   "\\s*(?P<correction_algorithm_invocations>\\d+)"
+                   "\\s*(?P<gb_processed>\\d+\\.*\\d*)"
+                   "\\s*(?P<uncorrected_errors>\\d+)"
+                   , smartctl_stdout,flags=re.MULTILINE)
+                if match:
+                    d = match.groupdict()
+                    for key in ("fast_ecc", "delayed_ecc",
+                                "correction_algorithm_invocations",
+                                "uncorrected_errors"):
+                        ansible_facts[osd][device][key] = d[key]
+                match = re.search("^Product:\\s*(?P<product>.*$)",
+                                  smartctl_stdout, flags=re.MULTILINE)
+                if match:
+                    d = match.groupdict()
+                    ansible_facts[osd][device]["product"] = d["product"]
+                match = re.search("^Manufactured.*$", smartctl_stdout,
+                                  flags=re.MULTILINE)
+                if match:
+                    ansible_facts[osd][device]["manufactured"] = match.group(0)
                 continue
             for i, line in enumerate(lines):
                 if line.find(
@@ -57,7 +80,11 @@ def main():
                     module.fail_json(msg="OSD: %s, device: %s status: %s" %
                                 (osd, device, status))
                     return
-    module.exit_json(failed=False)
+            module.fail_json(
+                msg="OSD: %s, device: %s. Unknown failure, return code=%d" %
+                    (osd, device, rc))
+            return
+    module.exit_json(failed=False, smartctl=ansible_facts)
 
 if __name__ == "__main__":
     main()
