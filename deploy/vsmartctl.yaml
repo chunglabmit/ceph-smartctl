@@ -1,0 +1,55 @@
+# Smartmon control for virtual disks and RAID
+#
+#
+- hosts: shares
+  tasks:
+    - name: Install smartmontools
+      become: yes
+      yum:
+        name: smartmontools
+    - name: Install ledmon
+      become: yes
+      yum:
+        name: ledmon
+    - name: Copy vsmartd.conf to smartd.conf
+      become: yes
+      copy:
+        src: vsmartd.conf
+        dest: /etc/smartmontools/smartd.conf
+        owner: root
+        group: root
+        mode: '0644'
+      register: vsmartd_copied
+    - name: start smartd
+      become: yes
+      systemd:
+        name: smartd
+        state: started
+    - name: start smart on all drives
+      become: yes
+      command: smartctl -s on -d megaraid,"{{ item }}" /dev/bus/0
+      ignore_errors: yes
+      loop:
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+        - "5"
+        - "6"
+        - "7"
+        - "8"
+        - "9"
+        - "10"
+        - "11"
+        - "12"
+    - name: restart smartd on copy
+      become: yes
+      systemd:
+        name: smartd
+        state: restarted
+      when: vsmartd_copied.changed
+    - name: check status
+      become: yes
+      vcheck_status:
+      register: check_status_output
+    - debug: var=check_status_output.smartctl

@@ -4,19 +4,35 @@
       become: yes
       yum:
         name: smartmontools
+    - name: Install ledmon
+      become: yes
+      yum:
+        name: ledmon
     - name: Copy smartd.conf
       become: yes
       copy:
         src: smartd.conf
-        dest: /etc/smartd.conf
+        dest: /etc/smartmontools/smartd.conf
         owner: root
         group: root
         mode: '0644'
+      register: smartd_copied
     - name: Start smartd
       become: yes
       systemd:
         name: smartd
         state: started
+    - name: Start smart on all drives
+      become: yes
+      command: smartctl -s on /dev/"{{ item.key }}"
+      with_dict: "{{ ansible_devices }}"
+      when: (item.key is regex("^sd.$")) and (smartd_copied.changed)
+    - name: Restart smartd on copy
+      become: yes
+      systemd:
+        name: smartd
+        state: restarted
+      when: smartd_copied.changed
     - name: check status
       become: yes
       check_status:

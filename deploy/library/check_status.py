@@ -27,6 +27,7 @@ def main():
         all_devices[osd] = devices
 
     ansible_facts = {}
+    failed = False
     for osd, devices in all_devices.items():
         ansible_facts[osd] = {}
         for device in devices:
@@ -72,19 +73,26 @@ def main():
                                   flags=re.MULTILINE)
                 if match:
                     ansible_facts[osd][device]["manufactured"] = match.group(0)
+                #
+                # Turn off LEDs
+                #
+                module.run_command([
+                    "ledctl", "off=%s" % device])
                 continue
+            module.run_command([
+                "ledctl", "locate=%s" % device])
+            failed=True
             for i, line in enumerate(lines):
                 if line.find(
                         "=== START OF READ SMART DATA SECTION ===") != -1:
                     status = lines[i+1]
                     module.fail_json(msg="OSD: %s, device: %s status: %s" %
                                 (osd, device, status))
-                    return
             module.fail_json(
                 msg="OSD: %s, device: %s. Unknown failure, return code=%d" %
                     (osd, device, rc))
-            return
-    module.exit_json(failed=False, smartctl=ansible_facts)
+    if not failed:
+        module.exit_json(failed=False, smartctl=ansible_facts)
 
 if __name__ == "__main__":
     main()

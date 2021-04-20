@@ -1,0 +1,23 @@
+[osds]
+osd1 ansible_host=192.168.0.50
+osd2 ansible_host=192.168.0.51
+osd3 ansible_host=192.168.0.52
+osd4 ansible_host=192.168.0.53
+osd5 ansible_host=192.168.0.54
+osd6 ansible_host=192.168.0.55
+osd7 ansible_host=192.168.0.56
+osd8 ansible_host=192.168.0.57
+osd9 ansible_host=192.168.0.58
+osd10 ansible_host=192.168.0.59
+osd11 ansible_host=192.168.0.60
+osd12 ansible_host=192.168.0.61
+osd13 ansible_host=192.168.0.63
+
+[shares]
+osd14 ansible_host=192.168.0.64
+osd15 ansible_host=192.168.0.65
+osd16 ansible_host=192.168.0.66
+osd17 ansible_host=192.168.0.67
+osd18 ansible_host=192.168.0.68
+osd19 ansible_host=192.168.0.69
+osd20 ansible_host=192.168.0.70
